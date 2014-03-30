@@ -1,0 +1,177 @@
+package com.ul.resads.ui;
+
+import java.io.IOException;
+import java.net.URL;
+import java.util.List;
+
+import com.ul.resads.data.Food;
+import com.ul.resads.util.RetrieveDataFrmActivity;
+
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.os.AsyncTask;
+import android.os.Bundle;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentManager;
+import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemClickListener;
+import android.widget.BaseAdapter;
+import android.widget.GridView;
+import android.widget.ImageView;
+import android.widget.TextView;
+
+public class FoodFragment extends Fragment implements OnItemClickListener {
+
+	private View rootView;
+	private LayoutInflater inflater;
+	private GridView gridViewFood;
+	private List<Food> foodList;
+	private ImageAdapter adapter;
+	private RetrieveDataFrmActivity dataFrmActivity;
+	private ThumbnailTask thumbnailTask;
+
+	public View onCreateView(LayoutInflater inflater, ViewGroup container,
+			Bundle savedInstanceState) {
+
+		super.onCreate(savedInstanceState);
+		rootView = inflater.inflate(R.layout.fragment_food, container, false);
+		this.inflater = inflater;
+		gridViewFood = (GridView) rootView.findViewById(R.id.GridViewFood);
+		dataFrmActivity = (RetrieveDataFrmActivity) getActivity();
+		refreshData(dataFrmActivity.getFoodList());
+		gridViewFood.setOnItemClickListener(this);
+		return rootView;
+
+	}
+
+	public void refreshData(List<Food> foodList) {
+
+		this.foodList = foodList;
+		adapter = new ImageAdapter(this.foodList, R.layout.grid_item);
+		gridViewFood.setAdapter(adapter);
+
+	}
+
+	public void cancelTask() {
+		thumbnailTask.cancel(true);
+	}
+
+	private class ImageAdapter extends BaseAdapter {
+
+		private List<Food> foodList;
+		private int viewResourceId;
+
+		public ImageAdapter(List<Food> foodList, int viewResourceId) {
+			super();
+			this.foodList = foodList;
+			this.viewResourceId = viewResourceId;
+		}
+
+		@Override
+		public int getCount() { // TODO Auto-generated method stub
+			return foodList.size();
+		}
+
+		@Override
+		public Object getItem(int position) {
+			// TODO Auto-generated method stub
+			return foodList.get(position);
+		}
+
+		@Override
+		public long getItemId(int position) {
+			// TODO Auto-generated method stub
+			return foodList.get(position).getResId();
+		}
+
+		@Override
+		public View getView(int position, View convertView, ViewGroup parent) {
+			View view = null;
+			if (convertView == null) {
+				view = inflater.inflate(viewResourceId, null);
+				final ViewHolder vholder = new ViewHolder();
+				vholder.imageView = (ImageView) view
+						.findViewById(R.id.grid_item_image);
+				vholder.textView = (TextView) view
+						.findViewById(R.id.grid_item_label);
+				view.setTag(vholder);
+			} else {
+
+				view = convertView;
+			}
+			ViewHolder holder = (ViewHolder) view.getTag();
+			holder.position = position;
+			holder.textView.setText(foodList.get(position).getFoodName());
+			thumbnailTask = new ThumbnailTask(position, holder);
+			thumbnailTask.execute(foodList.get(position).getFoodImageUrl());
+			return view;
+		}
+
+	}
+
+	private static class ThumbnailTask extends
+			AsyncTask<String, Integer, Bitmap> {
+		private int mPosition;
+		private ViewHolder mHolder;
+		private volatile boolean running;
+
+		public ThumbnailTask(int position, ViewHolder holder) {
+			mPosition = position;
+			mHolder = holder;
+			running = true;
+		}
+
+		@Override
+		protected Bitmap doInBackground(String... params) {
+			if (running) {
+
+				Bitmap foodImage = null;
+				try {
+					URL url = new URL(params[0]);
+					foodImage = BitmapFactory.decodeStream(url.openConnection()
+							.getInputStream());
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				return foodImage;
+			}
+			return null;
+		}
+
+		protected void onPostExecute(Bitmap bitmap) {
+			if (mHolder.position == mPosition) {
+				mHolder.imageView.setImageBitmap(bitmap);
+
+			}
+		}
+
+		@Override
+		protected void onCancelled() {
+			running = false;
+		}
+
+	}
+
+	static class ViewHolder {
+		protected int position;
+		protected ImageView imageView;
+		protected TextView textView;
+	}
+
+	@Override
+	public void onItemClick(AdapterView<?> parent, View view, int position,
+			long id) {
+
+		FragmentManager fm = getChildFragmentManager();
+		RestaurantFragment f = new RestaurantFragment();
+		f.setResid(foodList.get(position).getResId());
+		f.show(fm, "Restaurant Detail");
+
+	}
+
+}
